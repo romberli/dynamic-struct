@@ -1,6 +1,9 @@
 package dynamicstruct
 
-import "reflect"
+import (
+	"errors"
+	"reflect"
+)
 
 type (
 	// Builder holds all fields' definitions for desired structs.
@@ -138,6 +141,51 @@ func MergeStructs(values ...interface{}) Builder {
 	return builder
 }
 
+// ExtendStructWithSettableFields extends existing instance of struct and
+// returns new instance of Builder interface.
+//
+// builder := dynamicstruct.ExtendStructWithSettableFields(MyStruct{})
+//
+// it will build only with exported and addressable fields,
+// therefore it will not panic, even there are unexported or unaddressable fields in the struct,
+// input value must be a pointer to struct, otherwise, it returns error
+// only exported and addressable fields will be extended
+func ExtendStructWithSettableFields(value interface{}) (Builder, error) {
+	return MergeStructsWithSettableFields(value)
+}
+
+// MergeStructsWithSettableFields merges a list of existing instances of structs and
+// returns new instance of Builder interface.
+//
+// builder := dynamicstruct.MergeStructsWithSettableFields(MyStructOne{}, MyStructTwo{}, MyStructThree{})
+//
+// it will build only with exported and addressable fields,
+// therefore it will not panic, even there are unexported or unaddressable fields in the struct,
+// each value in values must be a pointer to struct, otherwise, it returns error
+// only exported and addressable fields will be merged
+func MergeStructsWithSettableFields(values ...interface{}) (Builder, error) {
+	builder := NewStruct()
+
+	for _, value := range values {
+		if reflect.TypeOf(value).Kind() != reflect.Ptr {
+			return nil, errors.New("values must be pointers to struct")
+		}
+
+		elem := reflect.ValueOf(value).Elem()
+
+		for i := 0; i < elem.NumField(); i++ {
+			fval := elem.Field(i)
+			ftyp := reflect.ValueOf(value).Type().Elem().Field(i)
+			ef := elem.Field(i)
+			if ef.CanSet() {
+				builder.AddField(ftyp.Name, fval.Interface(), string(ftyp.Tag))
+			}
+		}
+	}
+
+	return builder, nil
+}
+
 func (b *builderImpl) AddField(name string, typ interface{}, tag string) Builder {
 	b.fields[name] = &fieldConfigImpl{
 		typ: typ,
@@ -191,14 +239,14 @@ func (f *fieldConfigImpl) SetTag(tag string) FieldConfig {
 	return f
 }
 
-func (ds *dynamicStructImpl) New() interface{}  {
+func (ds *dynamicStructImpl) New() interface{} {
 	return reflect.New(ds.definition).Interface()
 }
 
-func (ds *dynamicStructImpl) NewSliceOfStructs() interface{}  {
+func (ds *dynamicStructImpl) NewSliceOfStructs() interface{} {
 	return reflect.New(reflect.SliceOf(ds.definition)).Interface()
 }
 
-func (ds *dynamicStructImpl) NewMapOfStructs(key interface{}) interface{}  {
+func (ds *dynamicStructImpl) NewMapOfStructs(key interface{}) interface{} {
 	return reflect.New(reflect.MapOf(reflect.Indirect(reflect.ValueOf(key)).Type(), ds.definition)).Interface()
 }

@@ -107,6 +107,100 @@ func TestMergeStructs(t *testing.T) {
 	}
 }
 
+func TestExtendStructWithSettableFields(t *testing.T) {
+	value, err := ExtendStructWithSettableFields(&struct {
+		f     int
+		Field int `key:"value"`
+	}{})
+
+	if err != nil {
+		t.Errorf(`TestExtendStructWithSettableFields - expected nil error got %#v`, err)
+	}
+
+	builder, ok := value.(*builderImpl)
+	if !ok {
+		t.Errorf(`TestExtendStructWithSettableFields - expected instance of *builder got %#v`, value)
+	}
+
+	if builder.fields == nil {
+		t.Error(`TestExtendStructWithSettableFields - expected instance of *map[string]*fieldConfig got nil`)
+	}
+
+	if len(builder.fields) != 1 {
+		t.Errorf(`TestExtendStructWithSettableFields - expected length of fields map to be 1 got %d`, len(builder.fields))
+	}
+
+	field, ok := builder.fields["Field"]
+	if !ok {
+		t.Error(`TestExtendStructWithSettableFields - expected to have field "Field"`)
+	}
+
+	expected := &fieldConfigImpl{
+		typ: 0,
+		tag: `key:"value"`,
+	}
+
+	if !reflect.DeepEqual(field, expected) {
+		t.Errorf(`TestExtendStructWithExportedFields - expected field to be %#v got %#v`, expected, field)
+	}
+}
+
+func TestMergeStructsWithSettableFields(t *testing.T) {
+	value, err := MergeStructsWithSettableFields(
+		&struct {
+			FieldOne int `keyOne:"valueOne"`
+		}{},
+		&struct {
+			FieldTwo string `keyTwo:"valueTwo"`
+		}{},
+	)
+
+	if err != nil {
+		t.Errorf(`TestMergeStructsWithSettableFields - expected nil error got %#v`, err)
+	}
+
+	builder, ok := value.(*builderImpl)
+	if !ok {
+		t.Errorf(`TestMergeStructsWithSettableFields - expected instance of *builder got %#v`, value)
+	}
+
+	if builder.fields == nil {
+		t.Error(`TestMergeStructsWithSettableFields - expected instance of *map[string]*fieldConfig got nil`)
+	}
+
+	if len(builder.fields) != 2 {
+		t.Errorf(`TestMergeStructsWithSettableFields - expected length of fields map to be 1 got %d`, len(builder.fields))
+	}
+
+	fieldOne, ok := builder.fields["FieldOne"]
+	if !ok {
+		t.Error(`TestMergeStructsWithSettableFields - expected to have field "FieldOne"`)
+	}
+
+	expectedOne := &fieldConfigImpl{
+		typ: 0,
+		tag: `keyOne:"valueOne"`,
+	}
+
+	if !reflect.DeepEqual(fieldOne, expectedOne) {
+		t.Errorf(`TestMergeStructsWithSettableFields - expected field "FieldOne" to be %#v got %#v`, expectedOne, fieldOne)
+	}
+
+	fieldTwo, ok := builder.fields["FieldTwo"]
+	if !ok {
+		t.Error(`TestMergeStructsWithSettableFields - expected to have field "FieldTwo"`)
+	}
+
+	expectedTwo := &fieldConfigImpl{
+		typ: "",
+		tag: `keyTwo:"valueTwo"`,
+	}
+
+	if !reflect.DeepEqual(fieldTwo, expectedTwo) {
+		t.Errorf(`TestMergeStructsWithSettableFields - expected field "FieldTwo" to be %#v got %#v`, expectedTwo, fieldTwo)
+	}
+}
+
 func TestBuilderImpl_AddField(t *testing.T) {
 	builder := &builderImpl{
 		fields: map[string]*fieldConfigImpl{},
